@@ -194,7 +194,6 @@ func TestGetNotificationPolicy(t *testing.T) {
 	require.NotNil(t, res)
 
 	assert.Equal(t, policy, res.Result)
-
 }
 
 func TestListNotificationPolicies(t *testing.T) {
@@ -286,8 +285,8 @@ func TestUpdateNotificationPolicy(t *testing.T) {
 	require.NotNil(t, res)
 
 	assert.Equal(t, testPolicyID, res.Result.ID)
-
 }
+
 func TestDeleteNotificationPolicy(t *testing.T) {
 	setup()
 	defer teardown()
@@ -317,8 +316,8 @@ func TestDeleteNotificationPolicy(t *testing.T) {
 	require.NotNil(t, res)
 
 	assert.Equal(t, testPolicyID, res.Result.ID)
-
 }
+
 func TestCreateNotificationWebhooks(t *testing.T) {
 	setup()
 	defer teardown()
@@ -355,8 +354,8 @@ func TestCreateNotificationWebhooks(t *testing.T) {
 	require.NotNil(t, res)
 
 	assert.Equal(t, testWebhookID, res.Result.ID)
-
 }
+
 func TestListNotificationWebhooks(t *testing.T) {
 	setup()
 	defer teardown()
@@ -471,7 +470,6 @@ func TestUpdateNotificationWebhooks(t *testing.T) {
 	require.NotNil(t, res)
 
 	assert.Equal(t, testWebhookID, res.Result.ID)
-
 }
 
 func TestDeleteNotificationWebhooks(t *testing.T) {
@@ -503,4 +501,66 @@ func TestDeleteNotificationWebhooks(t *testing.T) {
 	require.NotNil(t, res)
 
 	assert.Equal(t, testWebhookID, res.Result.ID)
+}
+
+func TestListNotificationHistory(t *testing.T) {
+	setup()
+	defer teardown()
+
+	expected := []NotificationHistory{
+		{
+			ID:            "some-id",
+			Name:          "some-name",
+			Description:   "some-description",
+			AlertBody:     "some-alert-body",
+			AlertType:     "some-alert-type",
+			Mechanism:     "some-mechanism",
+			MechanismType: "some-mechanism-type",
+			Sent:          notificationTimestamp,
+		},
+	}
+
+	expectedResultInfo := ResultInfo{
+		Page:    0,
+		PerPage: 25,
+		Count:   1,
+	}
+
+	pageOptions := PaginationOptions{
+		PerPage: 25,
+		Page:    1,
+	}
+
+	alertHistory, err := json.Marshal(expected)
+	require.NoError(t, err)
+	require.NotNil(t, alertHistory)
+
+	resultInfo, err := json.Marshal(expectedResultInfo)
+	require.NoError(t, err)
+	require.NotNil(t, resultInfo)
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method, "expected method 'GET', got %s", r.Method)
+		w.Header().Set("content-type", "application/json")
+		_, err = fmt.Fprintf(w, `{
+  									"success": true,
+  									"errors": [],
+  									"messages": [],
+									"result_info": %s,
+  									"result": %s
+								}`,
+			string(resultInfo),
+			string(alertHistory))
+		if err != nil {
+			return
+		}
+	}
+
+	mux.HandleFunc("/accounts/"+testAccountID+"/alerting/v3/history", handler)
+
+	actualResult, actualResultInfo, err := client.ListNotificationHistory(context.Background(), testAccountID, pageOptions)
+	require.Nil(t, err)
+	require.NotNil(t, actualResult)
+	require.Equal(t, expected, actualResult)
+	require.Equal(t, expectedResultInfo, actualResultInfo)
 }
