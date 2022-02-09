@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -16,7 +18,7 @@ type NotificationMechanismData struct {
 }
 
 // NotificationMechanismIntegrations is a list of all the integrations of a
-// certain mechanism type e.g. all email integrations
+// certain mechanism type e.g. all email integrations.
 type NotificationMechanismIntegrations []NotificationMechanismData
 
 // NotificationPolicy represents the notification policy created along with
@@ -148,6 +150,27 @@ type NotificationAvailableAlertsResponse struct {
 	Result NotificationsGroupedByProduct
 }
 
+// NotificationHistory describes the history
+// of notifications sent for an account.
+type NotificationHistory struct {
+	ID            string    `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	AlertBody     string    `json:"alert_body"`
+	AlertType     string    `json:"alert_type"`
+	Mechanism     string    `json:"mechanism"`
+	MechanismType string    `json:"mechanism_type"`
+	Sent          time.Time `json:"sent"`
+}
+
+// NotificationHistoryResponse describes the notification history
+// response for an account for a specific time period.
+type NotificationHistoryResponse struct {
+	Response
+	ResultInfo `json:"result_info"`
+	Result     []NotificationHistory
+}
+
 // ListNotificationPolicies will return the notification policies
 // created by a user for a specific account.
 //
@@ -190,7 +213,6 @@ func (api *API) GetNotificationPolicy(ctx context.Context, accountID, policyID s
 //
 // API Reference: https://api.cloudflare.com/#notification-policies-create-notification-policy
 func (api *API) CreateNotificationPolicy(ctx context.Context, accountID string, policy NotificationPolicy) (SaveResponse, error) {
-
 	baseURL := fmt.Sprintf("/accounts/%s/alerting/v3/policies", accountID)
 
 	res, err := api.makeRequestContext(ctx, http.MethodPost, baseURL, policy)
@@ -247,7 +269,6 @@ func (api *API) ListNotificationWebhooks(ctx context.Context, accountID string) 
 		return r, err
 	}
 	return r, nil
-
 }
 
 // CreateNotificationWebhooks will help connect a webhooks destination.
@@ -384,7 +405,39 @@ func (api *API) GetAvailableNotificationTypes(ctx context.Context, accountID str
 	return r, nil
 }
 
-// unmarshal will unmarshal bytes and return a SaveResponse
+// ListNotificationHistory will return the history of alerts sent for
+// a given account. The time period varies based on zone plan.
+// Free, Biz, Pro = 30 days
+// Ent = 90 days
+//
+// API Reference: https://api.cloudflare.com/#notification-history-list-history
+func (api *API) ListNotificationHistory(ctx context.Context, accountID string, pageOpts PaginationOptions) ([]NotificationHistory, ResultInfo, error) {
+	v := url.Values{}
+	if pageOpts.PerPage > 0 {
+		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
+	}
+	if pageOpts.Page > 0 {
+		v.Set("page", strconv.Itoa(pageOpts.Page))
+	}
+
+	baseURL := fmt.Sprintf("/accounts/%s/alerting/v3/history", accountID)
+	if len(v) > 0 {
+		baseURL = fmt.Sprintf("%s?%s", baseURL, v.Encode())
+	}
+
+	res, err := api.makeRequestContext(ctx, http.MethodGet, baseURL, nil)
+	if err != nil {
+		return []NotificationHistory{}, ResultInfo{}, err
+	}
+	var r NotificationHistoryResponse
+	err = json.Unmarshal(res, &r)
+	if err != nil {
+		return []NotificationHistory{}, ResultInfo{}, err
+	}
+	return r.Result, r.ResultInfo, nil
+}
+
+// unmarshal will unmarshal bytes and return a SaveResponse.
 func unmarshalNotificationSaveResponse(res []byte) (SaveResponse, error) {
 	var r SaveResponse
 	err := json.Unmarshal(res, &r)

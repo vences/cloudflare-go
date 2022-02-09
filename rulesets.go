@@ -17,17 +17,18 @@ const (
 	RulesetKindSchema  RulesetKind = "schema"
 	RulesetKindZone    RulesetKind = "zone"
 
-	RulesetPhaseDDoSL4                      RulesetPhase = "ddos_l4"
-	RulesetPhaseDDoSL7                      RulesetPhase = "ddos_l7"
-	RulesetPhaseHTTPRequestFirewallCustom   RulesetPhase = "http_request_firewall_custom"
-	RulesetPhaseHTTPRequestFirewallManaged  RulesetPhase = "http_request_firewall_managed"
-	RulesetPhaseHTTPRequestLateTransform    RulesetPhase = "http_request_late_transform"
-	RulesetPhaseHTTPRequestMain             RulesetPhase = "http_request_main"
-	RulesetPhaseHTTPRequestSanitize         RulesetPhase = "http_request_sanitize"
-	RulesetPhaseHTTPRequestTransform        RulesetPhase = "http_request_transform"
-	RulesetPhaseHTTPResponseFirewallManaged RulesetPhase = "http_response_firewall_managed"
-	RulesetPhaseMagicTransit                RulesetPhase = "magic_transit"
-	RulesetPhaseRateLimit                   RulesetPhase = "http_ratelimit"
+	RulesetPhaseDDoSL4                       RulesetPhase = "ddos_l4"
+	RulesetPhaseDDoSL7                       RulesetPhase = "ddos_l7"
+	RulesetPhaseHTTPRequestFirewallCustom    RulesetPhase = "http_request_firewall_custom"
+	RulesetPhaseHTTPRequestFirewallManaged   RulesetPhase = "http_request_firewall_managed"
+	RulesetPhaseHTTPRequestLateTransform     RulesetPhase = "http_request_late_transform"
+	RulesetPhaseHTTPRequestMain              RulesetPhase = "http_request_main"
+	RulesetPhaseHTTPRequestSanitize          RulesetPhase = "http_request_sanitize"
+	RulesetPhaseHTTPRequestTransform         RulesetPhase = "http_request_transform"
+	RulesetPhaseHTTPResponseHeadersTransform RulesetPhase = "http_response_headers_transform"
+	RulesetPhaseHTTPResponseFirewallManaged  RulesetPhase = "http_response_firewall_managed"
+	RulesetPhaseMagicTransit                 RulesetPhase = "magic_transit"
+	RulesetPhaseRateLimit                    RulesetPhase = "http_ratelimit"
 
 	RulesetRuleActionBlock                RulesetRuleAction = "block"
 	RulesetRuleActionChallenge            RulesetRuleAction = "challenge"
@@ -76,6 +77,7 @@ func RulesetPhaseValues() []string {
 		string(RulesetPhaseHTTPRequestMain),
 		string(RulesetPhaseHTTPRequestSanitize),
 		string(RulesetPhaseHTTPRequestTransform),
+		string(RulesetPhaseHTTPResponseHeadersTransform),
 		string(RulesetPhaseHTTPResponseFirewallManaged),
 		string(RulesetPhaseMagicTransit),
 		string(RulesetPhaseRateLimit),
@@ -167,6 +169,7 @@ type RulesetRuleActionParameters struct {
 	URI         *RulesetRuleActionParametersURI                  `json:"uri,omitempty"`
 	Headers     map[string]RulesetRuleActionParametersHTTPHeader `json:"headers,omitempty"`
 	Products    []string                                         `json:"products,omitempty"`
+	Phases      []string                                         `json:"phases,omitempty"`
 	Overrides   *RulesetRuleActionParametersOverrides            `json:"overrides,omitempty"`
 	MatchedData *RulesetRuleActionParametersMatchedData          `json:"matched_data,omitempty"`
 	Version     string                                           `json:"version,omitempty"`
@@ -202,8 +205,13 @@ type RulesetRuleActionParametersHTTPHeader struct {
 }
 
 type RulesetRuleActionParametersOverrides struct {
-	Enabled    bool                                    `json:"enabled,omitempty"`
+<<<<<<< HEAD
+	Enabled    *bool                                   `json:"enabled,omitempty"`
 	Action     string								   `json:"action,omitempty"`
+=======
+	Enabled    *bool                                   `json:"enabled,omitempty"`
+	Action     string                                  `json:"action,omitempty"`
+>>>>>>> 837973fbf1c8e28ee601ecf521a0f0d66456d8f9
 	Categories []RulesetRuleActionParametersCategories `json:"categories,omitempty"`
 	Rules      []RulesetRuleActionParametersRules      `json:"rules,omitempty"`
 }
@@ -230,17 +238,18 @@ type RulesetRuleActionParametersMatchedData struct {
 
 // RulesetRule contains information about a single Ruleset Rule.
 type RulesetRule struct {
-	ID               string                       `json:"id,omitempty"`
-	Version          string                       `json:"version,omitempty"`
-	Action           string                       `json:"action"`
-	ActionParameters *RulesetRuleActionParameters `json:"action_parameters,omitempty"`
-	Expression       string                       `json:"expression"`
-	Description      string                       `json:"description"`
-	LastUpdated      *time.Time                   `json:"last_updated,omitempty"`
-	Ref              string                       `json:"ref,omitempty"`
-	Enabled          bool                         `json:"enabled"`
-	ScoreThreshold   int                          `json:"score_threshold,omitempty"`
-	RateLimit        *RulesetRuleRateLimit        `json:"ratelimit,omitempty"`
+	ID                     string                             `json:"id,omitempty"`
+	Version                string                             `json:"version,omitempty"`
+	Action                 string                             `json:"action"`
+	ActionParameters       *RulesetRuleActionParameters       `json:"action_parameters,omitempty"`
+	Expression             string                             `json:"expression"`
+	Description            string                             `json:"description"`
+	LastUpdated            *time.Time                         `json:"last_updated,omitempty"`
+	Ref                    string                             `json:"ref,omitempty"`
+	Enabled                bool                               `json:"enabled"`
+	ScoreThreshold         int                                `json:"score_threshold,omitempty"`
+	RateLimit              *RulesetRuleRateLimit              `json:"ratelimit,omitempty"`
+	ExposedCredentialCheck *RulesetRuleExposedCredentialCheck `json:"exposed_credential_check,omitempty"`
 }
 
 // RulesetRuleRateLimit contains the structure of a HTTP rate limit Ruleset Rule.
@@ -253,6 +262,13 @@ type RulesetRuleRateLimit struct {
 	// Should always be sent as "" will trigger the service to use the Ruleset
 	// expression instead.
 	MitigationExpression string `json:"mitigation_expression"`
+}
+
+// RulesetRuleExposedCredentialCheck contains the structure of an exposed
+// credential check Ruleset Rule.
+type RulesetRuleExposedCredentialCheck struct {
+	UsernameExpression string `json:"username_expression,omitempty"`
+	PasswordExpression string `json:"password_expression,omitempty"`
 }
 
 // UpdateRulesetRequest is the representation of a Ruleset update.
@@ -333,7 +349,7 @@ func (api *API) GetAccountRuleset(ctx context.Context, accountID, rulesetID stri
 }
 
 // getRuleset fetches a single ruleset based on the zone or account, the
-// identifer and the ruleset ID.
+// identifier and the ruleset ID.
 func (api *API) getRuleset(ctx context.Context, identifierType RouteRoot, identifier, rulesetID string) (Ruleset, error) {
 	uri := fmt.Sprintf("/%s/%s/rulesets/%s", identifierType, identifier, rulesetID)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
@@ -445,20 +461,20 @@ func (api *API) updateRuleset(ctx context.Context, identifierType RouteRoot, ide
 
 // GetZoneRulesetPhase returns a ruleset phase for a zone.
 //
-// API reference: TBA
+// API reference: TBA.
 func (api *API) GetZoneRulesetPhase(ctx context.Context, zoneID, rulesetPhase string) (Ruleset, error) {
 	return api.getRulesetPhase(ctx, ZoneRouteRoot, zoneID, rulesetPhase)
 }
 
 // GetAccountRulesetPhase returns a ruleset phase for an account.
 //
-// API reference: TBA
+// API reference: TBA.
 func (api *API) GetAccountRulesetPhase(ctx context.Context, accountID, rulesetPhase string) (Ruleset, error) {
 	return api.getRulesetPhase(ctx, AccountRouteRoot, accountID, rulesetPhase)
 }
 
 // getRulesetPhase returns a ruleset phase based on the zone or account and the
-// identifer.
+// identifier.
 func (api *API) getRulesetPhase(ctx context.Context, identifierType RouteRoot, identifier, rulesetPhase string) (Ruleset, error) {
 	uri := fmt.Sprintf("/%s/%s/rulesets/phases/%s/entrypoint", identifierType, identifier, rulesetPhase)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
@@ -476,20 +492,20 @@ func (api *API) getRulesetPhase(ctx context.Context, identifierType RouteRoot, i
 
 // UpdateZoneRulesetPhase updates a ruleset phase for a zone.
 //
-// API reference: TBA
+// API reference: TBA.
 func (api *API) UpdateZoneRulesetPhase(ctx context.Context, zoneID, rulesetPhase string, ruleset Ruleset) (Ruleset, error) {
 	return api.updateRulesetPhase(ctx, ZoneRouteRoot, zoneID, rulesetPhase, ruleset)
 }
 
 // UpdateAccountRulesetPhase updates a ruleset phase for an account.
 //
-// API reference: TBA
+// API reference: TBA.
 func (api *API) UpdateAccountRulesetPhase(ctx context.Context, accountID, rulesetPhase string, ruleset Ruleset) (Ruleset, error) {
 	return api.updateRulesetPhase(ctx, AccountRouteRoot, accountID, rulesetPhase, ruleset)
 }
 
 // updateRulesetPhase updates a ruleset phase based on the zone or account, the
-// identifer and the rules.
+// identifier and the rules.
 func (api *API) updateRulesetPhase(ctx context.Context, identifierType RouteRoot, identifier, rulesetPhase string, ruleset Ruleset) (Ruleset, error) {
 	uri := fmt.Sprintf("/%s/%s/rulesets/phases/%s/entrypoint", identifierType, identifier, rulesetPhase)
 	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, ruleset)

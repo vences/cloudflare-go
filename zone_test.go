@@ -2,7 +2,7 @@ package cloudflare
 
 import (
 	"context"
-	"crypto/md5"   // for generating IDs
+	"crypto/md5"   //nolint:gosec
 	"encoding/hex" // for generating IDs
 	"encoding/json"
 	"fmt"
@@ -18,7 +18,7 @@ import (
 // mockID returns a hex string of length 32, suitable for all kinds of IDs
 // used in the Cloudflare API.
 func mockID(seed string) string {
-	arr := md5.Sum([]byte(seed))
+	arr := md5.Sum([]byte(seed)) //nolint:gosec
 	return hex.EncodeToString(arr[:])
 }
 
@@ -1333,6 +1333,34 @@ func TestUpdateZoneDNSSEC(t *testing.T) {
 		assert.Equal(t, z.DS, "example.com. 3600 IN DS 16953 13 2 48E939042E82C22542CB377B580DFDC52A361CEFDC72E7F9107E2B6BD9306A45")
 		assert.Equal(t, z.KeyTag, 42)
 		assert.Equal(t, z.PublicKey, "oXiGYrSTO+LSCJ3mohc8EP+CzF9KxBj8/ydXJ22pKuZP3VAC3/Md/k7xZfz470CoRyZJ6gV6vml07IC3d8xqhA==")
+		time, _ := time.Parse("2006-01-02T15:04:05Z", "2014-01-01T05:20:00Z")
+		assert.Equal(t, z.ModifiedOn, time)
+	}
+}
+
+func TestZoneSetType(t *testing.T) {
+	setup()
+	defer teardown()
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPatch, r.Method, "Expected method 'PATCH', got %s", r.Method)
+
+		w.Header().Set("content-type", "application/json")
+		fmt.Fprintf(w, `{
+			"result": {
+				"type": "partial",
+				"verification_key": "000000000-000000000",
+				"modified_on": "2014-01-01T05:20:00Z"
+				}
+		}`)
+	}
+
+	mux.HandleFunc("/zones/foo", handler)
+
+	z, err := client.ZoneSetType(context.Background(), "foo", "partial")
+	if assert.NoError(t, err) {
+		assert.Equal(t, z.Type, "partial")
+		assert.Equal(t, z.VerificationKey, "000000000-000000000")
 		time, _ := time.Parse("2006-01-02T15:04:05Z", "2014-01-01T05:20:00Z")
 		assert.Equal(t, z.ModifiedOn, time)
 	}

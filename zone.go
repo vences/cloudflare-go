@@ -66,9 +66,9 @@ type ZoneMeta struct {
 // ZonePlan contains the plan information for a zone.
 type ZonePlan struct {
 	ZonePlanCommon
+	LegacyID          string `json:"legacy_id"`
 	IsSubscribed      bool   `json:"is_subscribed"`
 	CanSubscribe      bool   `json:"can_subscribe"`
-	LegacyID          string `json:"legacy_id"`
 	LegacyDiscount    bool   `json:"legacy_discount"`
 	ExternallyManaged bool   `json:"externally_managed"`
 }
@@ -79,7 +79,7 @@ type ZoneRatePlan struct {
 	Components []zoneRatePlanComponents `json:"components,omitempty"`
 }
 
-// ZonePlanCommon contains fields used by various Plan endpoints
+// ZonePlanCommon contains fields used by various Plan endpoints.
 type ZonePlanCommon struct {
 	ID        string `json:"id"`
 	Name      string `json:"name,omitempty"`
@@ -280,13 +280,13 @@ type newZone struct {
 	Account *Account `json:"organization,omitempty"`
 }
 
-// FallbackOrigin describes a fallback origin
+// FallbackOrigin describes a fallback origin.
 type FallbackOrigin struct {
 	Value string `json:"value"`
 	ID    string `json:"id,omitempty"`
 }
 
-// FallbackOriginResponse represents the response from the fallback_origin endpoint
+// FallbackOriginResponse represents the response from the fallback_origin endpoint.
 type FallbackOriginResponse struct {
 	Response
 	Result FallbackOrigin `json:"result"`
@@ -523,12 +523,28 @@ type ZoneOptions struct {
 	Paused   *bool     `json:"paused,omitempty"`
 	VanityNS []string  `json:"vanity_name_servers,omitempty"`
 	Plan     *ZonePlan `json:"plan,omitempty"`
+	Type     string    `json:"type,omitempty"`
 }
 
 // ZoneSetPaused pauses Cloudflare service for the entire zone, sending all
 // traffic direct to the origin.
 func (api *API) ZoneSetPaused(ctx context.Context, zoneID string, paused bool) (Zone, error) {
 	zoneopts := ZoneOptions{Paused: &paused}
+	zone, err := api.EditZone(ctx, zoneID, zoneopts)
+	if err != nil {
+		return Zone{}, err
+	}
+
+	return zone, nil
+}
+
+// ZoneSetType toggles the type for an existing zone.
+//
+// Valid values for `type` are "full" and "partial"
+//
+// API reference: https://api.cloudflare.com/#zone-edit-zone
+func (api *API) ZoneSetType(ctx context.Context, zoneID string, zoneType string) (Zone, error) {
+	zoneopts := ZoneOptions{Type: zoneType}
 	zone, err := api.EditZone(ctx, zoneID, zoneopts)
 	if err != nil {
 		return Zone{}, err
@@ -591,7 +607,7 @@ func (api *API) ZoneUpdatePlan(ctx context.Context, zoneID string, planType stri
 
 // EditZone edits the given zone.
 //
-// This is usually called by ZoneSetPaused or ZoneSetVanityNS.
+// This is usually called by ZoneSetPaused, ZoneSetType, or ZoneSetVanityNS.
 //
 // API reference: https://api.cloudflare.com/#zone-edit-zone-properties
 func (api *API) EditZone(ctx context.Context, zoneID string, zoneOpts ZoneOptions) (Zone, error) {
@@ -928,13 +944,13 @@ func (api *API) ZoneExport(ctx context.Context, zoneID string) (string, error) {
 	return string(res), nil
 }
 
-// ZoneDNSSECResponse represents the response from the Zone DNSSEC Setting
+// ZoneDNSSECResponse represents the response from the Zone DNSSEC Setting.
 type ZoneDNSSECResponse struct {
 	Response
 	Result ZoneDNSSEC `json:"result"`
 }
 
-// ZoneDNSSEC represents the response from the Zone DNSSEC Setting result
+// ZoneDNSSEC represents the response from the Zone DNSSEC Setting result.
 type ZoneDNSSEC struct {
 	Status          string    `json:"status"`
 	Flags           int       `json:"flags"`
@@ -966,7 +982,7 @@ func (api *API) ZoneDNSSECSetting(ctx context.Context, zoneID string) (ZoneDNSSE
 	return response.Result, nil
 }
 
-// ZoneDNSSECDeleteResponse represents the response from the Zone DNSSEC Delete request
+// ZoneDNSSECDeleteResponse represents the response from the Zone DNSSEC Delete request.
 type ZoneDNSSECDeleteResponse struct {
 	Response
 	Result string `json:"result"`
@@ -988,7 +1004,7 @@ func (api *API) DeleteZoneDNSSEC(ctx context.Context, zoneID string) (string, er
 	return response.Result, nil
 }
 
-// ZoneDNSSECUpdateOptions represents the options for DNSSEC update
+// ZoneDNSSECUpdateOptions represents the options for DNSSEC update.
 type ZoneDNSSECUpdateOptions struct {
 	Status string `json:"status"`
 }
