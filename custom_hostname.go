@@ -22,8 +22,10 @@ const (
 	ACTIVE CustomHostnameStatus = "active"
 	// MOVED status represents state of CustomHostname is moved.
 	MOVED CustomHostnameStatus = "moved"
-	// DELETED status represents state of CustomHostname is removed.
+	// DELETED status represents state of CustomHostname is deleted.
 	DELETED CustomHostnameStatus = "deleted"
+	// BLOCKED status represents state of CustomHostname is blocked from going active.
+	BLOCKED CustomHostnameStatus = "blocked"
 )
 
 // CustomHostnameSSLSettings represents the SSL settings for a custom hostname.
@@ -90,7 +92,7 @@ type CustomHostname struct {
 	CustomOriginServer        string                                  `json:"custom_origin_server,omitempty"`
 	CustomOriginSNI           string                                  `json:"custom_origin_sni,omitempty"`
 	SSL                       *CustomHostnameSSL                      `json:"ssl,omitempty"`
-	CustomMetadata            CustomMetadata                          `json:"custom_metadata,omitempty"`
+	CustomMetadata            *CustomMetadata                         `json:"custom_metadata,omitempty"`
 	Status                    CustomHostnameStatus                    `json:"status,omitempty"`
 	VerificationErrors        []string                                `json:"verification_errors,omitempty"`
 	OwnershipVerification     CustomHostnameOwnershipVerification     `json:"ownership_verification,omitempty"`

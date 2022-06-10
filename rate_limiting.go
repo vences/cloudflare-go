@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 
 	"github.com/pkg/errors"
 )
@@ -107,18 +105,7 @@ func (api *API) CreateRateLimit(ctx context.Context, zoneID string, limit RateLi
 //
 // API reference: https://api.cloudflare.com/#rate-limits-for-a-zone-list-rate-limits
 func (api *API) ListRateLimits(ctx context.Context, zoneID string, pageOpts PaginationOptions) ([]RateLimit, ResultInfo, error) {
-	v := url.Values{}
-	if pageOpts.PerPage > 0 {
-		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
-	}
-	if pageOpts.Page > 0 {
-		v.Set("page", strconv.Itoa(pageOpts.Page))
-	}
-
-	uri := fmt.Sprintf("/zones/%s/rate_limits", zoneID)
-	if len(v) > 0 {
-		uri = fmt.Sprintf("%s?%s", uri, v.Encode())
-	}
+	uri := buildURI(fmt.Sprintf("/zones/%s/rate_limits", zoneID), pageOpts)
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {

@@ -17,18 +17,22 @@ const (
 	RulesetKindSchema  RulesetKind = "schema"
 	RulesetKindZone    RulesetKind = "zone"
 
-	RulesetPhaseDDoSL4                       RulesetPhase = "ddos_l4"
-	RulesetPhaseDDoSL7                       RulesetPhase = "ddos_l7"
-	RulesetPhaseHTTPRequestFirewallCustom    RulesetPhase = "http_request_firewall_custom"
-	RulesetPhaseHTTPRequestFirewallManaged   RulesetPhase = "http_request_firewall_managed"
-	RulesetPhaseHTTPRequestLateTransform     RulesetPhase = "http_request_late_transform"
-	RulesetPhaseHTTPRequestMain              RulesetPhase = "http_request_main"
-	RulesetPhaseHTTPRequestSanitize          RulesetPhase = "http_request_sanitize"
-	RulesetPhaseHTTPRequestTransform         RulesetPhase = "http_request_transform"
-	RulesetPhaseHTTPResponseHeadersTransform RulesetPhase = "http_response_headers_transform"
-	RulesetPhaseHTTPResponseFirewallManaged  RulesetPhase = "http_response_firewall_managed"
-	RulesetPhaseMagicTransit                 RulesetPhase = "magic_transit"
-	RulesetPhaseRateLimit                    RulesetPhase = "http_ratelimit"
+	RulesetPhaseDDoSL4                          RulesetPhase = "ddos_l4"
+	RulesetPhaseDDoSL7                          RulesetPhase = "ddos_l7"
+	RulesetPhaseHTTPLogCustomFields             RulesetPhase = "http_log_custom_fields"
+	RulesetPhaseHTTPRequestFirewallCustom       RulesetPhase = "http_request_firewall_custom"
+	RulesetPhaseHTTPRequestFirewallManaged      RulesetPhase = "http_request_firewall_managed"
+	RulesetPhaseHTTPRequestLateTransform        RulesetPhase = "http_request_late_transform"
+	RulesetPhaseHTTPRequestLateTransformManaged RulesetPhase = "http_request_late_transform_managed"
+	RulesetPhaseHTTPRequestMain                 RulesetPhase = "http_request_main"
+	RulesetPhaseHTTPRequestSanitize             RulesetPhase = "http_request_sanitize"
+	RulesetPhaseHTTPRequestTransform            RulesetPhase = "http_request_transform"
+	RulesetPhaseHTTPRequestOrigin               RulesetPhase = "http_request_origin"
+	RulesetPhaseHTTPResponseFirewallManaged     RulesetPhase = "http_response_firewall_managed"
+	RulesetPhaseHTTPResponseHeadersTransform    RulesetPhase = "http_response_headers_transform"
+	RulesetPhaseMagicTransit                    RulesetPhase = "magic_transit"
+	RulesetPhaseRateLimit                       RulesetPhase = "http_ratelimit"
+	RulesetPhaseSuperBotFightMode               RulesetPhase = "http_request_sbfm"
 
 	RulesetRuleActionBlock                RulesetRuleAction = "block"
 	RulesetRuleActionChallenge            RulesetRuleAction = "challenge"
@@ -36,10 +40,13 @@ const (
 	RulesetRuleActionExecute              RulesetRuleAction = "execute"
 	RulesetRuleActionForceConnectionClose RulesetRuleAction = "force_connection_close"
 	RulesetRuleActionJSChallenge          RulesetRuleAction = "js_challenge"
+	RulesetRuleActionManagedChallenge     RulesetRuleAction = "managed_challenge"
 	RulesetRuleActionLog                  RulesetRuleAction = "log"
+	RulesetRuleActionLogCustomField       RulesetRuleAction = "log_custom_field"
 	RulesetRuleActionRewrite              RulesetRuleAction = "rewrite"
 	RulesetRuleActionScore                RulesetRuleAction = "score"
 	RulesetRuleActionSkip                 RulesetRuleAction = "skip"
+	RulesetRuleActionRoute                RulesetRuleAction = "route"
 
 	RulesetActionParameterProductBIC           RulesetActionParameterProduct = "bic"
 	RulesetActionParameterProductHOT           RulesetActionParameterProduct = "hot"
@@ -71,16 +78,20 @@ func RulesetPhaseValues() []string {
 	return []string{
 		string(RulesetPhaseDDoSL4),
 		string(RulesetPhaseDDoSL7),
+		string(RulesetPhaseHTTPLogCustomFields),
 		string(RulesetPhaseHTTPRequestFirewallCustom),
 		string(RulesetPhaseHTTPRequestFirewallManaged),
 		string(RulesetPhaseHTTPRequestLateTransform),
+		string(RulesetPhaseHTTPRequestLateTransformManaged),
 		string(RulesetPhaseHTTPRequestMain),
+		string(RulesetPhaseHTTPRequestOrigin),
 		string(RulesetPhaseHTTPRequestSanitize),
 		string(RulesetPhaseHTTPRequestTransform),
-		string(RulesetPhaseHTTPResponseHeadersTransform),
 		string(RulesetPhaseHTTPResponseFirewallManaged),
+		string(RulesetPhaseHTTPResponseHeadersTransform),
 		string(RulesetPhaseMagicTransit),
 		string(RulesetPhaseRateLimit),
+		string(RulesetPhaseSuperBotFightMode),
 	}
 }
 
@@ -94,10 +105,13 @@ func RulesetRuleActionValues() []string {
 		string(RulesetRuleActionExecute),
 		string(RulesetRuleActionForceConnectionClose),
 		string(RulesetRuleActionJSChallenge),
+		string(RulesetRuleActionManagedChallenge),
 		string(RulesetRuleActionLog),
+		string(RulesetRuleActionLogCustomField),
 		string(RulesetRuleActionRewrite),
 		string(RulesetRuleActionScore),
 		string(RulesetRuleActionSkip),
+		string(RulesetRuleActionRoute),
 	}
 }
 
@@ -158,21 +172,41 @@ type Ruleset struct {
 	ShareableEntitlementName string        `json:"shareable_entitlement_name,omitempty"`
 }
 
+// RulesetActionParametersLogCustomField wraps an object that is part of
+// request_fields, response_fields or cookie_fields.
+type RulesetActionParametersLogCustomField struct {
+	Name string `json:"name,omitempty"`
+}
+
 // RulesetRuleActionParameters specifies the action parameters for a Ruleset
 // rule.
 type RulesetRuleActionParameters struct {
-	ID          string                                           `json:"id,omitempty"`
-	Ruleset     string                                           `json:"ruleset,omitempty"`
-	Rulesets    []string                                         `json:"rulesets,omitempty"`
-	Rules       map[string][]string                              `json:"rules,omitempty"`
-	Increment   int                                              `json:"increment,omitempty"`
-	URI         *RulesetRuleActionParametersURI                  `json:"uri,omitempty"`
-	Headers     map[string]RulesetRuleActionParametersHTTPHeader `json:"headers,omitempty"`
-	Products    []string                                         `json:"products,omitempty"`
-	Phases      []string                                         `json:"phases,omitempty"`
-	Overrides   *RulesetRuleActionParametersOverrides            `json:"overrides,omitempty"`
-	MatchedData *RulesetRuleActionParametersMatchedData          `json:"matched_data,omitempty"`
-	Version     string                                           `json:"version,omitempty"`
+	ID             string                                           `json:"id,omitempty"`
+	Ruleset        string                                           `json:"ruleset,omitempty"`
+	Rulesets       []string                                         `json:"rulesets,omitempty"`
+	Rules          map[string][]string                              `json:"rules,omitempty"`
+	Increment      int                                              `json:"increment,omitempty"`
+	URI            *RulesetRuleActionParametersURI                  `json:"uri,omitempty"`
+	Headers        map[string]RulesetRuleActionParametersHTTPHeader `json:"headers,omitempty"`
+	Products       []string                                         `json:"products,omitempty"`
+	Phases         []string                                         `json:"phases,omitempty"`
+	Overrides      *RulesetRuleActionParametersOverrides            `json:"overrides,omitempty"`
+	MatchedData    *RulesetRuleActionParametersMatchedData          `json:"matched_data,omitempty"`
+	Version        string                                           `json:"version,omitempty"`
+	Response       *RulesetRuleActionParametersBlockResponse        `json:"response,omitempty"`
+	HostHeader     string                                           `json:"host_header,omitempty"`
+	Origin         *RulesetRuleActionParametersOrigin               `json:"origin,omitempty"`
+	RequestFields  []RulesetActionParametersLogCustomField          `json:"request_fields,omitempty"`
+	ResponseFields []RulesetActionParametersLogCustomField          `json:"response_fields,omitempty"`
+	CookieFields   []RulesetActionParametersLogCustomField          `json:"cookie_fields,omitempty"`
+}
+
+// RulesetRuleActionParametersBlockResponse holds the BlockResponse struct
+// for an action parameter.
+type RulesetRuleActionParametersBlockResponse struct {
+	StatusCode  uint16 `json:"status_code"`
+	ContentType string `json:"content_type"`
+	Content     string `json:"content"`
 }
 
 // RulesetRuleActionParametersURI holds the URI struct for an action parameter.
@@ -214,7 +248,7 @@ type RulesetRuleActionParametersOverrides struct {
 type RulesetRuleActionParametersCategories struct {
 	Category string `json:"category"`
 	Action   string `json:"action,omitempty"`
-	Enabled  bool   `json:"enabled"`
+	Enabled  *bool  `json:"enabled,omitempty"`
 }
 
 type RulesetRuleActionParametersRules struct {
@@ -231,6 +265,13 @@ type RulesetRuleActionParametersMatchedData struct {
 	PublicKey string `json:"public_key,omitempty"`
 }
 
+// RulesetRuleActionParametersOrigin is the definition for define action
+// parameters that involve Origin override.
+type RulesetRuleActionParametersOrigin struct {
+	Host string `json:"host,omitempty"`
+	Port uint16 `json:"port,omitempty"`
+}
+
 // RulesetRule contains information about a single Ruleset Rule.
 type RulesetRule struct {
 	ID                     string                             `json:"id,omitempty"`
@@ -245,18 +286,17 @@ type RulesetRule struct {
 	ScoreThreshold         int                                `json:"score_threshold,omitempty"`
 	RateLimit              *RulesetRuleRateLimit              `json:"ratelimit,omitempty"`
 	ExposedCredentialCheck *RulesetRuleExposedCredentialCheck `json:"exposed_credential_check,omitempty"`
+	Logging                *RulesetRuleLogging                `json:"logging,omitempty"`
 }
 
 // RulesetRuleRateLimit contains the structure of a HTTP rate limit Ruleset Rule.
 type RulesetRuleRateLimit struct {
-	Characteristics   []string `json:"characteristics,omitempty"`
-	RequestsPerPeriod int      `json:"requests_per_period,omitempty"`
-	Period            int      `json:"period,omitempty"`
-	MitigationTimeout int      `json:"mitigation_timeout,omitempty"`
-
-	// Should always be sent as "" will trigger the service to use the Ruleset
-	// expression instead.
-	MitigationExpression string `json:"mitigation_expression"`
+	Characteristics    []string `json:"characteristics,omitempty"`
+	RequestsPerPeriod  int      `json:"requests_per_period,omitempty"`
+	Period             int      `json:"period,omitempty"`
+	MitigationTimeout  int      `json:"mitigation_timeout,omitempty"`
+	CountingExpression string   `json:"counting_expression,omitempty"`
+	RequestsToOrigin   bool     `json:"requests_to_origin,omitempty"`
 }
 
 // RulesetRuleExposedCredentialCheck contains the structure of an exposed
@@ -264,6 +304,11 @@ type RulesetRuleRateLimit struct {
 type RulesetRuleExposedCredentialCheck struct {
 	UsernameExpression string `json:"username_expression,omitempty"`
 	PasswordExpression string `json:"password_expression,omitempty"`
+}
+
+// RulesetRuleLogging contains the logging configuration for the rule.
+type RulesetRuleLogging struct {
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // UpdateRulesetRequest is the representation of a Ruleset update.
@@ -377,7 +422,6 @@ func (api *API) CreateAccountRuleset(ctx context.Context, accountID string, rule
 func (api *API) createRuleset(ctx context.Context, identifierType RouteRoot, identifier string, ruleset Ruleset) (Ruleset, error) {
 	uri := fmt.Sprintf("/%s/%s/rulesets", identifierType, identifier)
 	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, ruleset)
-
 	if err != nil {
 		return Ruleset{}, err
 	}
@@ -408,7 +452,6 @@ func (api *API) DeleteAccountRuleset(ctx context.Context, accountID, rulesetID s
 func (api *API) deleteRuleset(ctx context.Context, identifierType RouteRoot, identifier, rulesetID string) error {
 	uri := fmt.Sprintf("/%s/%s/rulesets/%s", identifierType, identifier, rulesetID)
 	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
-
 	if err != nil {
 		return err
 	}

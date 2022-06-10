@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -78,24 +76,15 @@ func (api *API) ZoneLevelAccessPolicies(ctx context.Context, zoneID, application
 }
 
 func (api *API) accessPolicies(ctx context.Context, id string, applicationID string, pageOpts PaginationOptions, routeRoot RouteRoot) ([]AccessPolicy, ResultInfo, error) {
-	v := url.Values{}
-	if pageOpts.PerPage > 0 {
-		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
-	}
-	if pageOpts.Page > 0 {
-		v.Set("page", strconv.Itoa(pageOpts.Page))
-	}
-
-	uri := fmt.Sprintf(
-		"/%s/%s/access/apps/%s/policies",
-		routeRoot,
-		id,
-		applicationID,
+	uri := buildURI(
+		fmt.Sprintf(
+			"/%s/%s/access/apps/%s/policies",
+			routeRoot,
+			id,
+			applicationID,
+		),
+		pageOpts,
 	)
-
-	if len(v) > 0 {
-		uri = fmt.Sprintf("%s?%s", uri, v.Encode())
-	}
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {

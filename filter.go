@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 )
+
+var ErrNotEnoughFilterIDsProvided = errors.New("at least one filter ID must be provided.")
 
 // Filter holds the structure of the filter type.
 type Filter struct {
@@ -84,20 +84,7 @@ func (api *API) Filter(ctx context.Context, zoneID, filterID string) (Filter, er
 //
 // API reference: https://developers.cloudflare.com/firewall/api/cf-filters/get/#get-all-filters
 func (api *API) Filters(ctx context.Context, zoneID string, pageOpts PaginationOptions) ([]Filter, error) {
-	uri := fmt.Sprintf("/zones/%s/filters", zoneID)
-	v := url.Values{}
-
-	if pageOpts.PerPage > 0 {
-		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
-	}
-
-	if pageOpts.Page > 0 {
-		v.Set("page", strconv.Itoa(pageOpts.Page))
-	}
-
-	if len(v) > 0 {
-		uri = fmt.Sprintf("%s?%s", uri, v.Encode())
-	}
+	uri := buildURI(fmt.Sprintf("/zones/%s/filters", zoneID), pageOpts)
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
@@ -205,8 +192,20 @@ func (api *API) DeleteFilter(ctx context.Context, zoneID, filterID string) error
 //
 // API reference: https://developers.cloudflare.com/firewall/api/cf-filters/delete/#delete-multiple-filters
 func (api *API) DeleteFilters(ctx context.Context, zoneID string, filterIDs []string) error {
-	ids := strings.Join(filterIDs, ",")
-	uri := fmt.Sprintf("/zones/%s/filters?id=%s", zoneID, ids)
+	if len(filterIDs) == 0 {
+		return ErrNotEnoughFilterIDsProvided
+	}
+
+	// Swap this to a typed struct and passing in all parameters together.
+	q := url.Values{}
+	for _, id := range filterIDs {
+		q.Add("id", id)
+	}
+
+	uri := (&url.URL{
+		Path:     fmt.Sprintf("/zones/%s/filters", zoneID),
+		RawQuery: q.Encode(),
+	}).String()
 
 	_, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
 	if err != nil {

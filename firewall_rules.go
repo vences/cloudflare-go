@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -45,20 +44,7 @@ type FirewallRuleResponse struct {
 //
 // API reference: https://developers.cloudflare.com/firewall/api/cf-firewall-rules/get/#get-all-rules
 func (api *API) FirewallRules(ctx context.Context, zoneID string, pageOpts PaginationOptions) ([]FirewallRule, error) {
-	uri := fmt.Sprintf("/zones/%s/firewall/rules", zoneID)
-	v := url.Values{}
-
-	if pageOpts.PerPage > 0 {
-		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
-	}
-
-	if pageOpts.Page > 0 {
-		v.Set("page", strconv.Itoa(pageOpts.Page))
-	}
-
-	if len(v) > 0 {
-		uri = fmt.Sprintf("%s?%s", uri, v.Encode())
-	}
+	uri := buildURI(fmt.Sprintf("/zones/%s/firewall/rules", zoneID), pageOpts)
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {

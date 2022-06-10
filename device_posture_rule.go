@@ -16,9 +16,11 @@ type DevicePostureIntegrationConfig struct {
 	ClientSecret string `json:"client_secret,omitempty"`
 	AuthUrl      string `json:"auth_url,omitempty"`
 	ApiUrl       string `json:"api_url,omitempty"`
+	ClientKey    string `json:"client_key,omitempty"`
+	CustomerID   string `json:"customer_id,omitempty"`
 }
 
-// DevicePosturIntegration represents a device posture integration.
+// DevicePostureIntegration represents a device posture integration.
 type DevicePostureIntegration struct {
 	IntegrationID string                         `json:"id,omitempty"`
 	Name          string                         `json:"name,omitempty"`
@@ -152,6 +154,7 @@ type DevicePostureRule struct {
 	Schedule    string                   `json:"schedule,omitempty"`
 	Match       []DevicePostureRuleMatch `json:"match,omitempty"`
 	Input       DevicePostureRuleInput   `json:"input,omitempty"`
+	Expiration  string                   `json:"expiration,omitempty"`
 }
 
 // DevicePostureRuleMatch represents the conditions that the client must match to run the rule.

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,7 +12,7 @@ import (
 
 // PagesProject represents a Pages project.
 type PagesProject struct {
-	Name                string                        `json:"name"`
+	Name                string                        `json:"name,omitempty"`
 	ID                  string                        `json:"id"`
 	CreatedOn           *time.Time                    `json:"created_on"`
 	SubDomain           string                        `json:"subdomain"`
@@ -121,18 +119,7 @@ type pagesProjectListResponse struct {
 //
 // API reference: https://api.cloudflare.com/#pages-project-get-projects
 func (api *API) ListPagesProjects(ctx context.Context, accountID string, pageOpts PaginationOptions) ([]PagesProject, ResultInfo, error) {
-	v := url.Values{}
-	if pageOpts.PerPage > 0 {
-		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
-	}
-	if pageOpts.Page > 0 {
-		v.Set("page", strconv.Itoa(pageOpts.Page))
-	}
-
-	uri := fmt.Sprintf("/accounts/%s/pages/projects", accountID)
-	if len(v) > 0 {
-		uri = fmt.Sprintf("%s?%s", uri, v.Encode())
-	}
+	uri := buildURI(fmt.Sprintf("/accounts/%s/pages/projects", accountID), pageOpts)
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {

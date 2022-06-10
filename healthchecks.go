@@ -52,9 +52,11 @@ type HealthcheckTCPConfig struct {
 }
 
 // HealthcheckNotification describes notification configuration for a healthcheck.
+// Deprecated: Use CreateNotificationPolicy() instead.
 type HealthcheckNotification struct {
 	Suspended      bool     `json:"suspended,omitempty"`
 	EmailAddresses []string `json:"email_addresses,omitempty"`
+	Trigger        string   `json:"trigger,omitempty"`
 }
 
 // HealthcheckListResponse is the API response, containing an array of healthchecks.

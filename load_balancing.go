@@ -87,6 +87,7 @@ type LoadBalancer struct {
 	PersistenceTTL            int                        `json:"session_affinity_ttl,omitempty"`
 	SessionAffinityAttributes *SessionAffinityAttributes `json:"session_affinity_attributes,omitempty"`
 	Rules                     []*LoadBalancerRule        `json:"rules,omitempty"`
+	RandomSteering            *RandomSteering            `json:"random_steering,omitempty"`
 
 	// SteeringPolicy controls pool selection logic.
 	// "off" select pools in DefaultPools order
@@ -161,20 +162,31 @@ type LoadBalancerRuleOverrides struct {
 	PoPPools     map[string][]string `json:"pop_pools,omitempty"`
 	RegionPools  map[string][]string `json:"region_pools,omitempty"`
 	CountryPools map[string][]string `json:"country_pools,omitempty"`
+
+	RandomSteering *RandomSteering `json:"random_steering,omitempty"`
+}
+
+// RandomSteering represents fields used to set pool weights on a load balancer
+// with "random" steering policy.
+type RandomSteering struct {
+	DefaultWeight float64            `json:"default_weight,omitempty"`
+	PoolWeights   map[string]float64 `json:"pool_weights,omitempty"`
 }
 
 // LoadBalancerRuleOverridesSessionAffinityAttrs mimics SessionAffinityAttributes without the
 // DrainDuration field as that field can not be overwritten via rules.
 type LoadBalancerRuleOverridesSessionAffinityAttrs struct {
-	SameSite string `json:"samesite,omitempty"`
-	Secure   string `json:"secure,omitempty"`
+	SameSite             string `json:"samesite,omitempty"`
+	Secure               string `json:"secure,omitempty"`
+	ZeroDowntimeFailover string `json:"zero_downtime_failover,omitempty"`
 }
 
 // SessionAffinityAttributes represents the fields used to set attributes in a load balancer session affinity cookie.
 type SessionAffinityAttributes struct {
-	SameSite      string `json:"samesite,omitempty"`
-	Secure        string `json:"secure,omitempty"`
-	DrainDuration int    `json:"drain_duration,omitempty"`
+	SameSite             string `json:"samesite,omitempty"`
+	Secure               string `json:"secure,omitempty"`
+	DrainDuration        int    `json:"drain_duration,omitempty"`
+	ZeroDowntimeFailover string `json:"zero_downtime_failover,omitempty"`
 }
 
 // LoadBalancerOriginHealth represents the health of the origin.

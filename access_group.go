@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -104,6 +102,14 @@ type AccessGroupCertificateCommonName struct {
 	CommonName struct {
 		CommonName string `json:"common_name"`
 	} `json:"common_name"`
+}
+
+// AccessGroupExternalEvaluation is used for passing user identity to an external url.
+type AccessGroupExternalEvaluation struct {
+	ExternalEvaluation struct {
+		EvaluateURL string `json:"evaluate_url"`
+		KeysURL     string `json:"keys_url"`
+	} `json:"external_evaluation"`
 }
 
 // AccessGroupGSuite is used to configure access based on GSuite group.
@@ -207,23 +213,14 @@ func (api *API) ZoneLevelAccessGroups(ctx context.Context, zoneID string, pageOp
 }
 
 func (api *API) accessGroups(ctx context.Context, id string, pageOpts PaginationOptions, routeRoot RouteRoot) ([]AccessGroup, ResultInfo, error) {
-	v := url.Values{}
-	if pageOpts.PerPage > 0 {
-		v.Set("per_page", strconv.Itoa(pageOpts.PerPage))
-	}
-	if pageOpts.Page > 0 {
-		v.Set("page", strconv.Itoa(pageOpts.Page))
-	}
-
-	uri := fmt.Sprintf(
-		"/%s/%s/access/groups",
-		routeRoot,
-		id,
+	uri := buildURI(
+		fmt.Sprintf(
+			"/%s/%s/access/groups",
+			routeRoot,
+			id,
+		),
+		pageOpts,
 	)
-
-	if len(v) > 0 {
-		uri = fmt.Sprintf("%s?%s", uri, v.Encode())
-	}
 
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
@@ -328,6 +325,7 @@ func (api *API) updateAccessGroup(ctx context.Context, id string, accessGroup Ac
 	if accessGroup.ID == "" {
 		return AccessGroup{}, errors.Errorf("access group ID cannot be empty")
 	}
+
 	uri := fmt.Sprintf(
 		"/%s/%s/access/groups/%s",
 		routeRoot,
