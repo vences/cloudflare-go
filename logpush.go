@@ -7,23 +7,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // LogpushJob describes a Logpush job.
 type LogpushJob struct {
-	ID                 int               `json:"id,omitempty"`
-	Dataset            string            `json:"dataset"`
-	Enabled            bool              `json:"enabled"`
-	Name               string            `json:"name"`
-	LogpullOptions     string            `json:"logpull_options"`
-	DestinationConf    string            `json:"destination_conf"`
-	OwnershipChallenge string            `json:"ownership_challenge,omitempty"`
-	LastComplete       *time.Time        `json:"last_complete,omitempty"`
-	LastError          *time.Time        `json:"last_error,omitempty"`
-	ErrorMessage       string            `json:"error_message,omitempty"`
-	Frequency          string            `json:"frequency,omitempty"`
-	Filter             LogpushJobFilters `json:"filter,omitempty"`
+	ID                 int                `json:"id,omitempty"`
+	Dataset            string             `json:"dataset"`
+	Enabled            bool               `json:"enabled"`
+	Kind               string             `json:"kind,omitempty"`
+	Name               string             `json:"name"`
+	LogpullOptions     string             `json:"logpull_options"`
+	DestinationConf    string             `json:"destination_conf"`
+	OwnershipChallenge string             `json:"ownership_challenge,omitempty"`
+	LastComplete       *time.Time         `json:"last_complete,omitempty"`
+	LastError          *time.Time         `json:"last_error,omitempty"`
+	ErrorMessage       string             `json:"error_message,omitempty"`
+	Frequency          string             `json:"frequency,omitempty"`
+	Filter             *LogpushJobFilters `json:"filter,omitempty"`
 }
 
 type LogpushJobFilters struct {
@@ -36,9 +37,9 @@ const (
 	Equal              Operator = "eq"
 	NotEqual           Operator = "!eq"
 	LessThan           Operator = "lt"
-	LessThanOrEqual    Operator = "lte"
+	LessThanOrEqual    Operator = "leq"
 	GreaterThan        Operator = "gt"
-	GreaterThanOrEqual Operator = "gte"
+	GreaterThanOrEqual Operator = "geq"
 	StartsWith         Operator = "startsWith"
 	EndsWith           Operator = "endsWith"
 	NotStartsWith      Operator = "!startsWith"
@@ -131,17 +132,23 @@ type LogpushDestinationExistsRequest struct {
 func (f LogpushJob) MarshalJSON() ([]byte, error) {
 	type Alias LogpushJob
 
-	filter, err := json.Marshal(f.Filter)
+	var filter string
 
-	if err != nil {
-		return nil, err
+	if f.Filter != nil {
+		b, err := json.Marshal(f.Filter)
+
+		if err != nil {
+			return nil, err
+		}
+
+		filter = string(b)
 	}
 
 	return json.Marshal(&struct {
 		Filter string `json:"filter,omitempty"`
 		Alias
 	}{
-		Filter: string(filter),
+		Filter: filter,
 		Alias:  (Alias)(f),
 	})
 }
@@ -167,7 +174,7 @@ func (f *LogpushJob) UnmarshalJSON(data []byte) error {
 		if err := filter.Where.Validate(); err != nil {
 			return err
 		}
-		f.Filter = filter
+		f.Filter = &filter
 	}
 	return nil
 }
@@ -180,7 +187,7 @@ func (filter *LogpushJobFilter) Validate() error {
 		for i, element := range filter.And {
 			err := element.Validate()
 			if err != nil {
-				return errors.WithMessagef(err, "element %v in And is invalid", i)
+				return fmt.Errorf("element %v in And is invalid: %w", i, err)
 			}
 		}
 		return nil
@@ -192,7 +199,7 @@ func (filter *LogpushJobFilter) Validate() error {
 		for i, element := range filter.Or {
 			err := element.Validate()
 			if err != nil {
-				return errors.WithMessagef(err, "element %v in Or is invalid", i)
+				return fmt.Errorf("element %v in Or is invalid: %w", i, err)
 			}
 		}
 		return nil
@@ -245,7 +252,7 @@ func (api *API) createLogpushJob(ctx context.Context, identifierType RouteRoot, 
 	var r LogpushJobDetailsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return nil, errors.Wrap(err, errUnmarshalError)
+		return nil, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return &r.Result, nil
 }
@@ -283,7 +290,7 @@ func (api *API) listLogpushJobs(ctx context.Context, identifierType RouteRoot, i
 	var r LogpushJobsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return []LogpushJob{}, errors.Wrap(err, errUnmarshalError)
+		return []LogpushJob{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -322,7 +329,7 @@ func (api *API) listLogpushJobsForDataset(ctx context.Context, identifierType Ro
 	var r LogpushJobsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return []LogpushJob{}, errors.Wrap(err, errUnmarshalError)
+		return []LogpushJob{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -364,7 +371,7 @@ func (api *API) getLogpushFields(ctx context.Context, identifierType RouteRoot, 
 	var r LogpushFieldsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return LogpushFields{}, errors.Wrap(err, errUnmarshalError)
+		return LogpushFields{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -402,7 +409,7 @@ func (api *API) getLogpushJob(ctx context.Context, identifierType RouteRoot, ide
 	var r LogpushJobDetailsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return LogpushJob{}, errors.Wrap(err, errUnmarshalError)
+		return LogpushJob{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result, nil
 }
@@ -440,7 +447,7 @@ func (api *API) updateLogpushJob(ctx context.Context, identifierType RouteRoot, 
 	var r LogpushJobDetailsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return errors.Wrap(err, errUnmarshalError)
+		return fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return nil
 }
@@ -478,7 +485,7 @@ func (api *API) deleteLogpushJob(ctx context.Context, identifierType RouteRoot, 
 	var r LogpushJobDetailsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return errors.Wrap(err, errUnmarshalError)
+		return fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return nil
 }
@@ -519,7 +526,7 @@ func (api *API) getLogpushOwnershipChallenge(ctx context.Context, identifierType
 	var r LogpushGetOwnershipChallengeResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return nil, errors.Wrap(err, errUnmarshalError)
+		return nil, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	if !r.Result.Valid {
@@ -566,7 +573,7 @@ func (api *API) validateLogpushOwnershipChallenge(ctx context.Context, identifie
 	var r LogpushGetOwnershipChallengeResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return false, errors.Wrap(err, errUnmarshalError)
+		return false, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result.Valid, nil
 }
@@ -607,7 +614,7 @@ func (api *API) checkLogpushDestinationExists(ctx context.Context, identifierTyp
 	var r LogpushDestinationExistsResponse
 	err = json.Unmarshal(res, &r)
 	if err != nil {
-		return false, errors.Wrap(err, errUnmarshalError)
+		return false, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 	return r.Result.Exists, nil
 }

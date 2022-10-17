@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 const (
 	// ListTypeIP specifies a list containing IP addresses.
 	ListTypeIP = "ip"
+	// ListTypeRedirect specifies a list containing redirects.
+	ListTypeRedirect = "redirect"
 )
 
 // ListBulkOperation contains information about a Bulk Operation.
@@ -35,10 +37,22 @@ type List struct {
 	ModifiedOn            *time.Time `json:"modified_on"`
 }
 
+// Redirect represents a redirect item in a List.
+type Redirect struct {
+	SourceUrl           string `json:"source_url"`
+	IncludeSubdomains   *bool  `json:"include_subdomains,omitempty"`
+	TargetUrl           string `json:"target_url"`
+	StatusCode          *int   `json:"status_code,omitempty"`
+	PreserveQueryString *bool  `json:"preserve_query_string,omitempty"`
+	SubpathMatching     *bool  `json:"subpath_matching,omitempty"`
+	PreservePathSuffix  *bool  `json:"preserve_path_suffix,omitempty"`
+}
+
 // ListItem contains information about a single List Item.
 type ListItem struct {
 	ID         string     `json:"id"`
-	IP         string     `json:"ip"`
+	IP         *string    `json:"ip,omitempty"`
+	Redirect   *Redirect  `json:"redirect,omitempty"`
 	Comment    string     `json:"comment"`
 	CreatedOn  *time.Time `json:"created_on"`
 	ModifiedOn *time.Time `json:"modified_on"`
@@ -53,8 +67,9 @@ type ListCreateRequest struct {
 
 // ListItemCreateRequest contains data for a new List Item.
 type ListItemCreateRequest struct {
-	IP      string `json:"ip"`
-	Comment string `json:"comment"`
+	IP       *string   `json:"ip,omitempty"`
+	Redirect *Redirect `json:"redirect,omitempty"`
+	Comment  string    `json:"comment"`
 }
 
 // ListItemDeleteRequest wraps List Items that shall be deleted.
@@ -128,81 +143,69 @@ type ListItemsGetResponse struct {
 }
 
 type ListListsParams struct {
-	AccountID string
 }
 
 type ListCreateParams struct {
-	AccountID   string
 	Name        string
 	Description string
 	Kind        string
 }
 
 type ListGetParams struct {
-	AccountID string
-	ID        string
+	ID string
 }
 
 type ListUpdateParams struct {
-	AccountID   string
 	ID          string
 	Description string
 }
 
 type ListDeleteParams struct {
-	AccountID string
-	ID        string
+	ID string
 }
 
 type ListListItemsParams struct {
-	AccountID string
-	ID        string
+	ID string
 }
 
 type ListCreateItemsParams struct {
-	AccountID string
-	ID        string
-	Items     []ListItemCreateRequest
+	ID    string
+	Items []ListItemCreateRequest
 }
 
 type ListCreateItemParams struct {
-	AccountID string
-	ID        string
-	Item      ListItemCreateRequest
+	ID   string
+	Item ListItemCreateRequest
 }
 
 type ListReplaceItemsParams struct {
-	AccountID string
-	ID        string
-	Items     []ListItemCreateRequest
+	ID    string
+	Items []ListItemCreateRequest
 }
 
 type ListDeleteItemsParams struct {
-	AccountID string
-	ID        string
-	Items     ListItemDeleteRequest
+	ID    string
+	Items ListItemDeleteRequest
 }
 
 type ListGetItemParams struct {
-	AccountID string
-	ListID    string
-	ID        string
+	ListID string
+	ID     string
 }
 
 type ListGetBulkOperationParams struct {
-	AccountID string
-	ID        string
+	ID string
 }
 
 // ListLists lists all Lists.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-list-lists
-func (api *API) ListLists(ctx context.Context, params ListListsParams) ([]List, error) {
-	if params.AccountID == "" {
+func (api *API) ListLists(ctx context.Context, rc *ResourceContainer, params ListListsParams) ([]List, error) {
+	if rc.Identifier == "" {
 		return []List{}, ErrMissingAccountID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists", params.AccountID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists", rc.Identifier)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return []List{}, err
@@ -210,7 +213,7 @@ func (api *API) ListLists(ctx context.Context, params ListListsParams) ([]List, 
 
 	result := ListListResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return []List{}, errors.Wrap(err, errUnmarshalError)
+		return []List{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result.Result, nil
@@ -219,21 +222,20 @@ func (api *API) ListLists(ctx context.Context, params ListListsParams) ([]List, 
 // CreateList creates a new List.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-create-list
-func (api *API) CreateList(ctx context.Context, params ListCreateParams) (List, error) {
-	if params.AccountID == "" {
+func (api *API) CreateList(ctx context.Context, rc *ResourceContainer, params ListCreateParams) (List, error) {
+	if rc.Identifier == "" {
 		return List{}, ErrMissingAccountID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists", params.AccountID)
-	res, err := api.makeRequestContext(ctx, http.MethodPost, uri,
-		ListCreateRequest{Name: params.Name, Description: params.Description, Kind: params.Kind})
+	uri := fmt.Sprintf("/accounts/%s/rules/lists", rc.Identifier)
+	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, ListCreateRequest{Name: params.Name, Description: params.Description, Kind: params.Kind})
 	if err != nil {
 		return List{}, err
 	}
 
 	result := ListResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return List{}, errors.Wrap(err, errUnmarshalError)
+		return List{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result.Result, nil
@@ -242,16 +244,16 @@ func (api *API) CreateList(ctx context.Context, params ListCreateParams) (List, 
 // GetList returns a single List.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-get-list
-func (api *API) GetList(ctx context.Context, params ListGetParams) (List, error) {
-	if params.AccountID == "" {
+func (api *API) GetList(ctx context.Context, rc *ResourceContainer, listID string) (List, error) {
+	if rc.Identifier == "" {
 		return List{}, ErrMissingAccountID
 	}
 
-	if params.ID == "" {
+	if listID == "" {
 		return List{}, ErrMissingListID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s", rc.Identifier, listID)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return List{}, err
@@ -259,7 +261,7 @@ func (api *API) GetList(ctx context.Context, params ListGetParams) (List, error)
 
 	result := ListResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return List{}, errors.Wrap(err, errUnmarshalError)
+		return List{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result.Result, nil
@@ -268,8 +270,8 @@ func (api *API) GetList(ctx context.Context, params ListGetParams) (List, error)
 // UpdateList updates the description of an existing List.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-update-list
-func (api *API) UpdateList(ctx context.Context, params ListUpdateParams) (List, error) {
-	if params.AccountID == "" {
+func (api *API) UpdateList(ctx context.Context, rc *ResourceContainer, params ListUpdateParams) (List, error) {
+	if rc.Identifier == "" {
 		return List{}, ErrMissingAccountID
 	}
 
@@ -277,7 +279,7 @@ func (api *API) UpdateList(ctx context.Context, params ListUpdateParams) (List, 
 		return List{}, ErrMissingListID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s", rc.Identifier, params.ID)
 	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, ListUpdateRequest{Description: params.Description})
 	if err != nil {
 		return List{}, err
@@ -285,7 +287,7 @@ func (api *API) UpdateList(ctx context.Context, params ListUpdateParams) (List, 
 
 	result := ListResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return List{}, errors.Wrap(err, errUnmarshalError)
+		return List{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result.Result, nil
@@ -294,16 +296,16 @@ func (api *API) UpdateList(ctx context.Context, params ListUpdateParams) (List, 
 // DeleteList deletes a List.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-delete-list
-func (api *API) DeleteList(ctx context.Context, params ListDeleteParams) (ListDeleteResponse, error) {
-	if params.AccountID == "" {
+func (api *API) DeleteList(ctx context.Context, rc *ResourceContainer, listID string) (ListDeleteResponse, error) {
+	if rc.Identifier == "" {
 		return ListDeleteResponse{}, ErrMissingAccountID
 	}
 
-	if params.ID == "" {
+	if listID == "" {
 		return ListDeleteResponse{}, ErrMissingListID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s", rc.Identifier, listID)
 	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, nil)
 	if err != nil {
 		return ListDeleteResponse{}, err
@@ -311,7 +313,7 @@ func (api *API) DeleteList(ctx context.Context, params ListDeleteParams) (ListDe
 
 	result := ListDeleteResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return ListDeleteResponse{}, errors.Wrap(err, errUnmarshalError)
+		return ListDeleteResponse{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result, nil
@@ -320,7 +322,7 @@ func (api *API) DeleteList(ctx context.Context, params ListDeleteParams) (ListDe
 // ListListItems returns a list with all items in a List.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-list-list-items
-func (api *API) ListListItems(ctx context.Context, params ListListItemsParams) ([]ListItem, error) {
+func (api *API) ListListItems(ctx context.Context, rc *ResourceContainer, params ListListItemsParams) ([]ListItem, error) {
 	var list []ListItem
 	var cursor string
 	var cursorQuery string
@@ -329,7 +331,7 @@ func (api *API) ListListItems(ctx context.Context, params ListListItemsParams) (
 		if len(cursor) > 0 {
 			cursorQuery = fmt.Sprintf("?cursor=%s", cursor)
 		}
-		uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items%s", params.AccountID, params.ID, cursorQuery)
+		uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items%s", rc.Identifier, params.ID, cursorQuery)
 		res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 		if err != nil {
 			return []ListItem{}, err
@@ -337,7 +339,7 @@ func (api *API) ListListItems(ctx context.Context, params ListListItemsParams) (
 
 		result := ListItemsListResponse{}
 		if err := json.Unmarshal(res, &result); err != nil {
-			return []ListItem{}, errors.Wrap(err, errUnmarshalError)
+			return []ListItem{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 		}
 
 		list = append(list, result.Result...)
@@ -353,8 +355,8 @@ func (api *API) ListListItems(ctx context.Context, params ListListItemsParams) (
 // using the operation_id returned by this function.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-create-list-items
-func (api *API) CreateListItemAsync(ctx context.Context, params ListCreateItemParams) (ListItemCreateResponse, error) {
-	if params.AccountID == "" {
+func (api *API) CreateListItemAsync(ctx context.Context, rc *ResourceContainer, params ListCreateItemParams) (ListItemCreateResponse, error) {
+	if rc.Identifier == "" {
 		return ListItemCreateResponse{}, ErrMissingAccountID
 	}
 
@@ -362,7 +364,7 @@ func (api *API) CreateListItemAsync(ctx context.Context, params ListCreateItemPa
 		return ListItemCreateResponse{}, ErrMissingListID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", rc.Identifier, params.ID)
 	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, []ListItemCreateRequest{params.Item})
 	if err != nil {
 		return ListItemCreateResponse{}, err
@@ -370,26 +372,26 @@ func (api *API) CreateListItemAsync(ctx context.Context, params ListCreateItemPa
 
 	result := ListItemCreateResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return ListItemCreateResponse{}, errors.Wrap(err, errUnmarshalError)
+		return ListItemCreateResponse{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result, nil
 }
 
 // CreateListItem creates a new List Item synchronously and returns the current set of List Items.
-func (api *API) CreateListItem(ctx context.Context, params ListCreateItemParams) ([]ListItem, error) {
-	result, err := api.CreateListItemAsync(ctx, params)
+func (api *API) CreateListItem(ctx context.Context, rc *ResourceContainer, params ListCreateItemParams) ([]ListItem, error) {
+	result, err := api.CreateListItemAsync(ctx, rc, params)
 
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	err = api.pollListBulkOperation(ctx, params.AccountID, result.Result.OperationID)
+	err = api.pollListBulkOperation(ctx, rc, result.Result.OperationID)
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	return api.ListListItems(ctx, ListListItemsParams{AccountID: params.AccountID, ID: params.ID})
+	return api.ListListItems(ctx, rc, ListListItemsParams{ID: params.ID})
 }
 
 // CreateListItemsAsync bulk creates multiple List Items asynchronously. Users
@@ -397,8 +399,8 @@ func (api *API) CreateListItem(ctx context.Context, params ListCreateItemParams)
 // function.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-create-list-items
-func (api *API) CreateListItemsAsync(ctx context.Context, params ListCreateItemsParams) (ListItemCreateResponse, error) {
-	if params.AccountID == "" {
+func (api *API) CreateListItemsAsync(ctx context.Context, rc *ResourceContainer, params ListCreateItemsParams) (ListItemCreateResponse, error) {
+	if rc.Identifier == "" {
 		return ListItemCreateResponse{}, ErrMissingAccountID
 	}
 
@@ -406,7 +408,7 @@ func (api *API) CreateListItemsAsync(ctx context.Context, params ListCreateItems
 		return ListItemCreateResponse{}, ErrMissingListID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", rc.Identifier, params.ID)
 	res, err := api.makeRequestContext(ctx, http.MethodPost, uri, params.Items)
 	if err != nil {
 		return ListItemCreateResponse{}, err
@@ -414,7 +416,7 @@ func (api *API) CreateListItemsAsync(ctx context.Context, params ListCreateItems
 
 	result := ListItemCreateResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return ListItemCreateResponse{}, errors.Wrap(err, errUnmarshalError)
+		return ListItemCreateResponse{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result, nil
@@ -422,18 +424,18 @@ func (api *API) CreateListItemsAsync(ctx context.Context, params ListCreateItems
 
 // CreateListItems bulk creates multiple List Items synchronously and returns
 // the current set of List Items.
-func (api *API) CreateListItems(ctx context.Context, params ListCreateItemsParams) ([]ListItem, error) {
-	result, err := api.CreateListItemsAsync(ctx, params)
+func (api *API) CreateListItems(ctx context.Context, rc *ResourceContainer, params ListCreateItemsParams) ([]ListItem, error) {
+	result, err := api.CreateListItemsAsync(ctx, rc, params)
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	err = api.pollListBulkOperation(ctx, params.AccountID, result.Result.OperationID)
+	err = api.pollListBulkOperation(ctx, rc, result.Result.OperationID)
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	return api.ListListItems(ctx, ListListItemsParams{AccountID: params.AccountID, ID: params.ID})
+	return api.ListListItems(ctx, rc, ListListItemsParams{ID: params.ID})
 }
 
 // ReplaceListItemsAsync replaces all List Items asynchronously. Users have to
@@ -441,8 +443,8 @@ func (api *API) CreateListItems(ctx context.Context, params ListCreateItemsParam
 // function.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-replace-list-items
-func (api *API) ReplaceListItemsAsync(ctx context.Context, params ListReplaceItemsParams) (ListItemCreateResponse, error) {
-	if params.AccountID == "" {
+func (api *API) ReplaceListItemsAsync(ctx context.Context, rc *ResourceContainer, params ListReplaceItemsParams) (ListItemCreateResponse, error) {
+	if rc.Identifier == "" {
 		return ListItemCreateResponse{}, ErrMissingAccountID
 	}
 
@@ -450,7 +452,7 @@ func (api *API) ReplaceListItemsAsync(ctx context.Context, params ListReplaceIte
 		return ListItemCreateResponse{}, ErrMissingListID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", rc.Identifier, params.ID)
 	res, err := api.makeRequestContext(ctx, http.MethodPut, uri, params.Items)
 	if err != nil {
 		return ListItemCreateResponse{}, err
@@ -458,7 +460,7 @@ func (api *API) ReplaceListItemsAsync(ctx context.Context, params ListReplaceIte
 
 	result := ListItemCreateResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return ListItemCreateResponse{}, errors.Wrap(err, errUnmarshalError)
+		return ListItemCreateResponse{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result, nil
@@ -466,19 +468,19 @@ func (api *API) ReplaceListItemsAsync(ctx context.Context, params ListReplaceIte
 
 // ReplaceListItems replaces all List Items synchronously and returns the
 // current set of List Items.
-func (api *API) ReplaceListItems(ctx context.Context, params ListReplaceItemsParams) (
+func (api *API) ReplaceListItems(ctx context.Context, rc *ResourceContainer, params ListReplaceItemsParams) (
 	[]ListItem, error) {
-	result, err := api.ReplaceListItemsAsync(ctx, params)
+	result, err := api.ReplaceListItemsAsync(ctx, rc, params)
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	err = api.pollListBulkOperation(ctx, params.AccountID, result.Result.OperationID)
+	err = api.pollListBulkOperation(ctx, rc, result.Result.OperationID)
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	return api.ListListItems(ctx, ListListItemsParams{AccountID: params.AccountID, ID: params.ID})
+	return api.ListListItems(ctx, rc, ListListItemsParams{ID: params.ID})
 }
 
 // DeleteListItemsAsync removes specific Items of a List by their ID
@@ -486,8 +488,8 @@ func (api *API) ReplaceListItems(ctx context.Context, params ListReplaceItemsPar
 // operation_id returned by this function.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-delete-list-items
-func (api *API) DeleteListItemsAsync(ctx context.Context, params ListDeleteItemsParams) (ListItemDeleteResponse, error) {
-	if params.AccountID == "" {
+func (api *API) DeleteListItemsAsync(ctx context.Context, rc *ResourceContainer, params ListDeleteItemsParams) (ListItemDeleteResponse, error) {
+	if rc.Identifier == "" {
 		return ListItemDeleteResponse{}, ErrMissingAccountID
 	}
 
@@ -495,7 +497,7 @@ func (api *API) DeleteListItemsAsync(ctx context.Context, params ListDeleteItems
 		return ListItemDeleteResponse{}, ErrMissingListID
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items", rc.Identifier, params.ID)
 	res, err := api.makeRequestContext(ctx, http.MethodDelete, uri, params.Items)
 	if err != nil {
 		return ListItemDeleteResponse{}, err
@@ -503,7 +505,7 @@ func (api *API) DeleteListItemsAsync(ctx context.Context, params ListDeleteItems
 
 	result := ListItemDeleteResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return ListItemDeleteResponse{}, errors.Wrap(err, errUnmarshalError)
+		return ListItemDeleteResponse{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result, nil
@@ -511,37 +513,37 @@ func (api *API) DeleteListItemsAsync(ctx context.Context, params ListDeleteItems
 
 // DeleteListItems removes specific Items of a List by their ID synchronously
 // and returns the current set of List Items.
-func (api *API) DeleteListItems(ctx context.Context, params ListDeleteItemsParams) ([]ListItem, error) {
-	result, err := api.DeleteListItemsAsync(ctx, params)
+func (api *API) DeleteListItems(ctx context.Context, rc *ResourceContainer, params ListDeleteItemsParams) ([]ListItem, error) {
+	result, err := api.DeleteListItemsAsync(ctx, rc, params)
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	err = api.pollListBulkOperation(ctx, params.AccountID, result.Result.OperationID)
+	err = api.pollListBulkOperation(ctx, rc, result.Result.OperationID)
 	if err != nil {
 		return []ListItem{}, err
 	}
 
-	return api.ListListItems(ctx, ListListItemsParams{AccountID: params.AccountID, ID: params.ID})
+	return api.ListListItems(ctx, AccountIdentifier(rc.Identifier), ListListItemsParams{ID: params.ID})
 }
 
 // GetListItem returns a single List Item.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-get-list-item
-func (api *API) GetListItem(ctx context.Context, params ListGetItemParams) (ListItem, error) {
-	if params.AccountID == "" {
+func (api *API) GetListItem(ctx context.Context, rc *ResourceContainer, listID, itemID string) (ListItem, error) {
+	if rc.Identifier == "" {
 		return ListItem{}, ErrMissingAccountID
 	}
 
-	if params.ListID == "" {
+	if listID == "" {
 		return ListItem{}, ErrMissingListID
 	}
 
-	if params.ID == "" {
+	if itemID == "" {
 		return ListItem{}, ErrMissingResourceIdentifier
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items/%s", params.AccountID, params.ListID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/%s/items/%s", rc.Identifier, listID, itemID)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return ListItem{}, err
@@ -549,7 +551,7 @@ func (api *API) GetListItem(ctx context.Context, params ListGetItemParams) (List
 
 	result := ListItemsGetResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return ListItem{}, errors.Wrap(err, errUnmarshalError)
+		return ListItem{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result.Result, nil
@@ -558,16 +560,16 @@ func (api *API) GetListItem(ctx context.Context, params ListGetItemParams) (List
 // GetListBulkOperation returns the status of a bulk operation.
 //
 // API reference: https://api.cloudflare.com/#rules-lists-get-bulk-operation
-func (api *API) GetListBulkOperation(ctx context.Context, params ListGetBulkOperationParams) (ListBulkOperation, error) {
-	if params.AccountID == "" {
+func (api *API) GetListBulkOperation(ctx context.Context, rc *ResourceContainer, ID string) (ListBulkOperation, error) {
+	if rc.Identifier == "" {
 		return ListBulkOperation{}, ErrMissingAccountID
 	}
 
-	if params.ID == "" {
+	if ID == "" {
 		return ListBulkOperation{}, ErrMissingResourceIdentifier
 	}
 
-	uri := fmt.Sprintf("/accounts/%s/rules/lists/bulk_operations/%s", params.AccountID, params.ID)
+	uri := fmt.Sprintf("/accounts/%s/rules/lists/bulk_operations/%s", rc.Identifier, ID)
 	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
 	if err != nil {
 		return ListBulkOperation{}, err
@@ -575,7 +577,7 @@ func (api *API) GetListBulkOperation(ctx context.Context, params ListGetBulkOper
 
 	result := ListBulkOperationResponse{}
 	if err := json.Unmarshal(res, &result); err != nil {
-		return ListBulkOperation{}, errors.Wrap(err, errUnmarshalError)
+		return ListBulkOperation{}, fmt.Errorf("%s: %w", errUnmarshalError, err)
 	}
 
 	return result.Result, nil
@@ -584,16 +586,16 @@ func (api *API) GetListBulkOperation(ctx context.Context, params ListGetBulkOper
 // pollListBulkOperation implements synchronous behaviour for some asynchronous
 // endpoints. bulk-operation status can be either pending, running, failed or
 // completed.
-func (api *API) pollListBulkOperation(ctx context.Context, accountID, ID string) error {
+func (api *API) pollListBulkOperation(ctx context.Context, rc *ResourceContainer, ID string) error {
 	for i := uint8(0); i < 16; i++ {
 		sleepDuration := 1 << (i / 2) * time.Second
 		select {
 		case <-time.After(sleepDuration):
 		case <-ctx.Done():
-			return errors.Wrap(ctx.Err(), "operation aborted during backoff")
+			return fmt.Errorf("operation aborted during backoff: %w", ctx.Err())
 		}
 
-		bulkResult, err := api.GetListBulkOperation(ctx, ListGetBulkOperationParams{AccountID: accountID, ID: ID})
+		bulkResult, err := api.GetListBulkOperation(ctx, rc, ID)
 		if err != nil {
 			return err
 		}
@@ -606,7 +608,7 @@ func (api *API) pollListBulkOperation(ctx context.Context, accountID, ID string)
 		case "completed":
 			return nil
 		default:
-			return errors.New(fmt.Sprintf("%s: %s", errOperationUnexpectedStatus, bulkResult.Status))
+			return fmt.Errorf("%s: %s", errOperationUnexpectedStatus, bulkResult.Status)
 		}
 	}
 

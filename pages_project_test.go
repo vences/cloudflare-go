@@ -21,6 +21,7 @@ const (
           "testdomain.com",
           "testdomain.org"
         ],
+		"production_branch": "main",
         "source": {
           "type": "github",
           "config": {
@@ -28,7 +29,18 @@ const (
             "repo_name": "pages-test",
             "production_branch": "main",
             "pr_comments_enabled": true,
-            "deployments_enabled": true
+            "deployments_enabled": true,
+			"preview_deployment_setting": "custom",
+			"preview_branch_includes": [
+				"release/*",
+				"production",
+				"main"
+			],
+			"preview_branch_excludes": [
+				"dependabot/*",
+				"dev",
+				"*/ignore"
+			]
           }
         },
         "build_config": {
@@ -47,7 +59,9 @@ const (
               "ENV": {
                 "value": "preview"
               }
-            }
+            },
+			"compatibility_date": "2022-08-15",
+			"compatibility_flags": ["preview_flag"]
           },
           "production": {
             "env_vars": {
@@ -57,7 +71,29 @@ const (
               "ENV": {
                 "value": "production"
               }
-            }
+            },
+			"d1_databases": {
+				"D1_BINDING": { 
+					"id": "a94509c6-0757-43f3-b053-474b0ab10935" 
+				}
+			},
+			"kv_namespaces": {
+				"KV_BINDING": {
+				  "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3"
+				}
+			},
+		  	"durable_object_namespaces": {
+				"DO_BINDING": {
+			  		"namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3"
+				}
+		  	},
+			"r2_buckets": {
+				"R2_BINDING": {
+					"name": "some-bucket"
+				}
+			},
+			"compatibility_date": "2022-08-15",
+			"compatibility_flags": ["production_flag"]
           }
         },
         "latest_deployment": {
@@ -66,6 +102,7 @@ const (
           "project_id": "5a321fc7-3162-7d36-adce-1213996a7",
           "project_name": "pages-test",
           "environment": "preview",
+		  "production_branch": "main",
           "url": "https://c35216d1.pages-test.pages.dev",
           "created_on": "2021-03-09T00:55:03.923456Z",
           "modified_on": "2021-03-09T00:58:59.045655Z",
@@ -86,6 +123,8 @@ const (
               "value": "STAGING"
             }
           },
+		  "compatibility_date": "2022-08-15",
+		  "compatibility_flags": ["deployment_flag"],
           "deployment_trigger": {
             "type": "ad_hoc",
             "metadata": {
@@ -122,7 +161,18 @@ const (
               "repo_name": "pages-test",
               "production_branch": "main",
               "pr_comments_enabled": true,
-              "deployments_enabled": true
+              "deployments_enabled": true,
+			  "preview_deployment_setting": "custom",
+			  "preview_branch_includes": [
+				"release/*",
+				"production",
+				"main"
+			  ],
+			  "preview_branch_excludes": [
+				"dependabot/*",
+				"dev",
+				"*/ignore"
+			  ]
             }
           }
         },
@@ -135,6 +185,7 @@ const (
           "url": "https://c35216d1.pages-test.pages.dev",
           "created_on": "2021-03-09T00:55:03.923456Z",
           "modified_on": "2021-03-09T00:58:59.045655Z",
+		  "production_branch": "main",
           "aliases": [
             "https://branchname.pages-test.pages.dev"
           ],
@@ -152,6 +203,8 @@ const (
               "value": "STAGING"
             }
           },
+		  "compatibility_date": "2022-08-15",
+		  "compatibility_flags": ["deployment_flag"],
           "deployment_trigger": {
             "type": "ad_hoc",
             "metadata": {
@@ -188,7 +241,18 @@ const (
               "repo_name": "pages-test",
               "production_branch": "main",
               "pr_comments_enabled": true,
-              "deployments_enabled": true
+              "deployments_enabled": true,
+			  "preview_deployment_setting": "custom",
+			  "preview_branch_includes": [
+				"release/*",
+				"production",
+				"main"
+			  ],
+			  "preview_branch_excludes": [
+				"dependabot/*",
+				"dev",
+				"*/ignore"
+			  ]
             }
           }
         }
@@ -209,9 +273,10 @@ var (
 		BuildConfig:         *expectedPagesProjectBuildConfig,
 		CreatedOn:           &pagesProjectCreatedOn,
 		DeploymentConfigs:   *expectedPagesProjectDeploymentConfigs,
-		Source:              *expectedPagesProjectSource,
+		Source:              expectedPagesProjectSource,
 		ID:                  "5a321fc7-3162-7d36-adce-1213996a7",
 		LatestDeployment:    *expectedPagesProjectDeployment,
+		ProductionBranch:    "main",
 	}
 
 	deploymentCreatedOn, _  = time.Parse(time.RFC3339, "2021-03-09T00:55:03.923456Z")
@@ -238,10 +303,13 @@ var (
 				"value": "STAGING",
 			},
 		},
-		DeploymentTrigger: *expectedPagesProjectDeploymentTrigger,
-		Stages:            expectedStages,
-		BuildConfig:       *expectedPagesProjectBuildConfig,
-		Source:            *expectedPagesProjectSource,
+		CompatibilityFlags: []string{"deployment_flag"},
+		CompatibilityDate:  "2022-08-15",
+		DeploymentTrigger:  *expectedPagesProjectDeploymentTrigger,
+		Stages:             expectedStages,
+		BuildConfig:        *expectedPagesProjectBuildConfig,
+		Source:             *expectedPagesProjectSource,
+		ProductionBranch:   "main",
 	}
 
 	latestDeploymentStageStartedOn, _ = time.Parse(time.RFC3339, "2021-03-09T00:55:03.923456Z")
@@ -303,6 +371,8 @@ var (
 				Value: "preview",
 			},
 		},
+		CompatibilityDate:  "2022-08-15",
+		CompatibilityFlags: []string{"preview_flag"},
 	}
 
 	expectedPagesProjectDeploymentConfigProduction = &PagesProjectDeploymentConfigEnvironment{
@@ -314,6 +384,20 @@ var (
 				Value: "production",
 			},
 		},
+		CompatibilityDate:  "2022-08-15",
+		CompatibilityFlags: []string{"production_flag"},
+		KvNamespaces: NamespaceBindingMap{
+			"KV_BINDING": &NamespaceBindingValue{Value: "5eb63bbbe01eeed093cb22bb8f5acdc3"},
+		},
+		D1Databases: D1BindingMap{
+			"D1_BINDING": &D1Binding{ID: "a94509c6-0757-43f3-b053-474b0ab10935"},
+		},
+		DoNamespaces: NamespaceBindingMap{
+			"DO_BINDING": &NamespaceBindingValue{Value: "5eb63bbbe01eeed093cb22bb8f5acdc3"},
+		},
+		R2Bindings: R2BindingMap{
+			"R2_BINDING": &R2BindingValue{Name: "some-bucket"},
+		},
 	}
 
 	expectedPagesProjectSource = &PagesProjectSource{
@@ -322,11 +406,14 @@ var (
 	}
 
 	expectedPagesProjectSourceConfig = &PagesProjectSourceConfig{
-		Owner:              "cloudflare",
-		RepoName:           "pages-test",
-		ProductionBranch:   "main",
-		PRCommentsEnabled:  true,
-		DeploymentsEnabled: true,
+		Owner:                    "cloudflare",
+		RepoName:                 "pages-test",
+		ProductionBranch:         "main",
+		PRCommentsEnabled:        true,
+		DeploymentsEnabled:       true,
+		PreviewDeploymentSetting: PagesPreviewCustomBranches,
+		PreviewBranchIncludes:    []string{"release/*", "production", "main"},
+		PreviewBranchExcludes:    []string{"dependabot/*", "dev", "*/ignore"},
 	}
 )
 

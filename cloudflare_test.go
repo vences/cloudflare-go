@@ -153,7 +153,7 @@ func TestClient_RetryCanSucceedAfterErrors(t *testing.T) {
             "success": true,
             "errors": [],
             "messages": [],
-            "result": 
+            "result":
                 {
                     "id": "17b5962d775c646f3f9725cbc7a53df4",
                     "created_on": "2014-01-01T05:20:00.12345Z",
@@ -165,7 +165,7 @@ func TestClient_RetryCanSucceedAfterErrors(t *testing.T) {
                     "origins": [
                       {
                         "name": "app-server-1",
-                        "address": "0.0.0.0",
+                        "address": "198.51.100.1",
                         "enabled": true
                       }
                     ],
@@ -184,7 +184,7 @@ func TestClient_RetryCanSucceedAfterErrors(t *testing.T) {
 
 	mux.HandleFunc("/user/load_balancers/pools", handler)
 
-	_, err := client.CreateLoadBalancerPool(context.Background(), LoadBalancerPool{ID: "123"})
+	_, err := client.CreateLoadBalancerPool(context.Background(), UserIdentifier(testUserID), CreateLoadBalancerPoolParams{LoadBalancerPool: LoadBalancerPool{ID: "123"}})
 	assert.NoError(t, err)
 }
 
@@ -209,7 +209,7 @@ func TestClient_RetryReturnsPersistentErrorResponse(t *testing.T) {
 
 	mux.HandleFunc("/user/load_balancers/pools", handler)
 
-	_, err := client.ListLoadBalancerPools(context.Background())
+	_, err := client.ListLoadBalancerPools(context.Background(), UserIdentifier(testUserID), ListLoadBalancerPoolParams{})
 	assert.Error(t, err)
 }
 
@@ -491,13 +491,20 @@ func (t RoundTripperFunc) RoundTrip(request *http.Request) (*http.Response, erro
 }
 
 func TestContextTimeout(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 0)
+	setup()
+	defer teardown()
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(time.Second * time.Duration(3))
+	}
+
+	mux.HandleFunc("/timeout", handler)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(1))
 	defer cancel()
 
-	cfClient, _ := New("deadbeef", "cloudflare@example.org")
-
 	start := time.Now()
-	_, err := cfClient.makeRequestContext(ctx, http.MethodHead, server.URL, nil)
+	_, err := client.makeRequestContext(ctx, http.MethodHead, "/timeout", nil)
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.WithinDuration(t, start, time.Now(), time.Second*2,
 		"makeRequestContext took too much time with an expiring context")
